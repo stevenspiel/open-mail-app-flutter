@@ -24,14 +24,14 @@ class OpenMailApp {
   /// the user to pick the mail app they want to open.
   ///
   /// Also see [openSpecificMailApp] and [getMailApps] for other use cases.
-  static Future<OpenMailAppResult> openMailApp() async {
+  static Future<OpenMailAppResult> openMailApp({String to}) async {
     if (Platform.isAndroid) {
-      var result = await _channel.invokeMethod<bool>('openMailApp');
+      var result = await _channel.invokeMethod<bool>('openMailApp', <String, String>{ 'to': to });
       return OpenMailAppResult(didOpen: result);
     } else if (Platform.isIOS) {
       var apps = await _getIosMailApps();
       if (apps.length == 1) {
-        var result = await launch(apps.first.iosLaunchScheme);
+        var result = await launch("${apps.first.iosLaunchScheme}$to");
         return OpenMailAppResult(didOpen: result);
       } else {
         return OpenMailAppResult(didOpen: false, options: apps);
@@ -43,15 +43,15 @@ class OpenMailApp {
 
   /// Attempts to open a specific email app installed on the device.
   /// Get a [MailApp] from calling [getMailApps]
-  static Future<bool> openSpecificMailApp(MailApp mailApp) async {
+  static Future<bool> openSpecificMailApp(MailApp mailApp, String to) async {
     if (Platform.isAndroid) {
       var result = await _channel.invokeMethod<bool>(
         'openSpecificMailApp',
-        <String, dynamic>{'name': mailApp.name},
+        <String, dynamic>{'name': mailApp.name, 'to': to},
       );
       return result;
     } else if (Platform.isIOS) {
-      return await launch(mailApp.iosLaunchScheme);
+      return await launch("${mailApp.iosLaunchScheme}$to");
     } else {
       throw Exception('Platform not supported');
     }
@@ -90,8 +90,9 @@ class OpenMailApp {
 /// list of mail apps installed on the device.
 class MailAppPickerDialog extends StatelessWidget {
   final List<MailApp> mailApps;
+  final String to;
 
-  const MailAppPickerDialog({Key key, @required this.mailApps})
+  const MailAppPickerDialog({Key key, @required this.mailApps, this.to})
       : super(key: key);
 
   @override
@@ -103,7 +104,7 @@ class MailAppPickerDialog extends StatelessWidget {
           SimpleDialogOption(
             child: Text(app.name),
             onPressed: () {
-              OpenMailApp.openSpecificMailApp(app);
+              OpenMailApp.openSpecificMailApp(app, to: to);
               Navigator.pop(context);
             },
           ),
@@ -138,6 +139,7 @@ class MailApp {
 class OpenMailAppResult {
   final bool didOpen;
   final List<MailApp> options;
+  final String to;
   bool get canOpen => options?.isNotEmpty ?? false;
 
   OpenMailAppResult({@required this.didOpen, this.options});
