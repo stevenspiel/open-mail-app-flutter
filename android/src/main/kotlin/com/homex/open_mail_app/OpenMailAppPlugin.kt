@@ -51,14 +51,16 @@ class OpenMailAppPlugin : FlutterPlugin, MethodCallHandler {
 
     override fun onMethodCall(@NonNull call: MethodCall, @NonNull result: Result) {
         if (call.method == "openMailApp") {
-            val opened = emailAppIntent()
+            val opened = emailAppIntent(call.argument("to"))
+
             if (opened) {
                 result.success(true)
             } else {
                 result.success(false)
             }
         } else if (call.method == "openSpecificMailApp" && call.hasArgument("name")) {
-            val opened = specificEmailAppIntent(call.argument("name")!!)
+            val opened = specificEmailAppIntent(call.argument("name")!!, call.argument("to"))
+
             if (opened) {
                 result.success(true)
             } else {
@@ -77,7 +79,7 @@ class OpenMailAppPlugin : FlutterPlugin, MethodCallHandler {
         channel.setMethodCallHandler(null)
     }
 
-    private fun emailAppIntent(): Boolean {
+    private fun emailAppIntent(to: String): Boolean {
         val emailIntent = Intent(Intent.ACTION_VIEW, Uri.parse("mailto:"))
         val packageManager = applicationContext.packageManager
 
@@ -106,6 +108,7 @@ class OpenMailAppPlugin : FlutterPlugin, MethodCallHandler {
             }
             val extraEmailInboxIntents = emailInboxIntents.toTypedArray()
             val finalIntent = emailAppChooserIntent.putExtra(Intent.EXTRA_INITIAL_INTENTS, extraEmailInboxIntents)
+            finalIntent.putExtra(Intent.EXTRA_EMAIL, arrayOf(to))
             finalIntent.flags = Intent.FLAG_ACTIVITY_NEW_TASK
             applicationContext.startActivity(finalIntent)
             return true
@@ -114,7 +117,7 @@ class OpenMailAppPlugin : FlutterPlugin, MethodCallHandler {
         }
     }
 
-    private fun specificEmailAppIntent(name: String): Boolean {
+    private fun specificEmailAppIntent(name: String, to: String): Boolean {
         val emailIntent = Intent(Intent.ACTION_VIEW, Uri.parse("mailto:"))
         val packageManager = applicationContext.packageManager
 
@@ -128,6 +131,7 @@ class OpenMailAppPlugin : FlutterPlugin, MethodCallHandler {
                 ?: return false
 
         emailInboxIntent.flags = Intent.FLAG_ACTIVITY_NEW_TASK
+        emailInboxIntent.putExtra(Intent.EXTRA_EMAIL, arrayOf(to))
         applicationContext.startActivity(emailInboxIntent)
         return true
     }
