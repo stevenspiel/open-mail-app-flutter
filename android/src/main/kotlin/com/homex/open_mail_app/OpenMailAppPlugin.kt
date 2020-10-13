@@ -5,8 +5,8 @@ import android.content.Intent
 import android.content.pm.LabeledIntent
 import android.net.Uri
 import androidx.annotation.NonNull
+import androidx.core.content.ContextCompat.startActivity
 import com.google.gson.Gson
-
 import io.flutter.embedding.engine.plugins.FlutterPlugin
 import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
@@ -51,7 +51,7 @@ class OpenMailAppPlugin : FlutterPlugin, MethodCallHandler {
 
     override fun onMethodCall(@NonNull call: MethodCall, @NonNull result: Result) {
         if (call.method == "openMailApp") {
-            val opened = emailAppIntent(call.argument("to"))
+            val opened = emailAppIntent(call.argument("to")!!)
 
             if (opened) {
                 result.success(true)
@@ -59,7 +59,9 @@ class OpenMailAppPlugin : FlutterPlugin, MethodCallHandler {
                 result.success(false)
             }
         } else if (call.method == "openSpecificMailApp" && call.hasArgument("name")) {
-            val opened = specificEmailAppIntent(call.argument("name")!!, call.argument("to"))
+            // for android, we can run the same thing for openMailApp and openSpecificMailApp.
+            // Let the system determine which email app to open
+            val opened = emailAppIntent(call.argument("to")!!)
 
             if (opened) {
                 result.success(true)
@@ -79,46 +81,26 @@ class OpenMailAppPlugin : FlutterPlugin, MethodCallHandler {
         channel.setMethodCallHandler(null)
     }
 
-    private fun emailAppIntent(to: String): Boolean {
-        val emailIntent = Intent(Intent.ACTION_VIEW, Uri.parse("mailto:"))
-        val packageManager = applicationContext.packageManager
+    private fun emailAppIntent(to: String?): Boolean {
+        val intent = Intent(Intent.ACTION_SENDTO)
+        intent.data = Uri.parse("mailto:") // only email apps should handle this
 
-        val activitiesHandlingEmails = packageManager.queryIntentActivities(emailIntent, 0)
-        if (activitiesHandlingEmails.isNotEmpty()) {
-            // use the first email package to create the chooserIntent
-            val firstEmailPackageName = activitiesHandlingEmails.first().activityInfo.packageName
-            val firstEmailInboxIntent = packageManager.getLaunchIntentForPackage(firstEmailPackageName)
-            val emailAppChooserIntent = Intent.createChooser(firstEmailInboxIntent, "")
+        if (to != null) {
+            intent.putExtra(Intent.EXTRA_EMAIL, arrayOf(to))
+        }
 
-            // created UI for other email packages and add them to the chooser
-            val emailInboxIntents = mutableListOf<LabeledIntent>()
-            for (i in 1 until activitiesHandlingEmails.size) {
-                val activityHandlingEmail = activitiesHandlingEmails[i]
-                val packageName = activityHandlingEmail.activityInfo.packageName
-                packageManager.getLaunchIntentForPackage(packageName)?.let { intent ->
-                    emailInboxIntents.add(
-                            LabeledIntent(
-                                    intent,
-                                    packageName,
-                                    activityHandlingEmail.loadLabel(packageManager),
-                                    activityHandlingEmail.icon
-                            )
-                    )
-                }
-            }
-            val extraEmailInboxIntents = emailInboxIntents.toTypedArray()
-            val finalIntent = emailAppChooserIntent.putExtra(Intent.EXTRA_INITIAL_INTENTS, extraEmailInboxIntents)
-            finalIntent.putExtra(Intent.EXTRA_EMAIL, arrayOf(to))
-            finalIntent.flags = Intent.FLAG_ACTIVITY_NEW_TASK
-            applicationContext.startActivity(finalIntent)
-            return true
+        return if (intent.resolveActivity(applicationContext.packageManager) != null) {
+            intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK
+            applicationContext.startActivity(intent)
+
+            true
         } else {
-            return false
+            false
         }
     }
 
-    private fun specificEmailAppIntent(name: String, to: String): Boolean {
-        val emailIntent = Intent(Intent.ACTION_VIEW, Uri.parse("mailto:"))
+    private fun specificEmailAppIntent(name: String, to: String?): Boolean {
+        val emailIntent = Intent(Intent.ACTION_SENDTO, Uri.fromParts("mailto", to, null))
         val packageManager = applicationContext.packageManager
 
         val activitiesHandlingEmails = packageManager.queryIntentActivities(emailIntent, 0)
@@ -131,7 +113,12 @@ class OpenMailAppPlugin : FlutterPlugin, MethodCallHandler {
                 ?: return false
 
         emailInboxIntent.flags = Intent.FLAG_ACTIVITY_NEW_TASK
-        emailInboxIntent.putExtra(Intent.EXTRA_EMAIL, arrayOf(to))
+
+        if (to != null) {
+            val recipients: Array<String> = arrayOf(to)
+            emailInboxIntent.putExtra(Intent.EXTRA_EMAIL, recipients)
+        }
+
         applicationContext.startActivity(emailInboxIntent)
         return true
     }
