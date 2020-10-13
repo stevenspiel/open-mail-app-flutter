@@ -15,12 +15,8 @@ iOS requires you to list the URL schemes you would like to query in the `Info.pl
 <key>LSApplicationQueriesSchemes</key>
 <array>
     <string>googlegmail</string>
-    <string>x-dispatch</string>
-    <string>readdle-spark</string>
-    <string>airmail</string>
     <string>ms-outlook</string>
     <string>ymail</string>
-    <string>fastmail</string>
 </array>
 ```
 
